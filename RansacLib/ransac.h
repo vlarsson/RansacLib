@@ -70,7 +70,8 @@ class LORansacOptions : public RansacOptions {
         min_sample_multiplicator_(7),
         non_min_sample_multiplier_(3),
         lo_starting_iterations_(50u),
-        final_least_squares_(false) {}
+        final_least_squares_(false),
+        use_non_minimal_solver_(true) {}
   int num_lo_steps_;
   double threshold_multiplier_;
   int num_lsq_iterations_;
@@ -89,6 +90,7 @@ class LORansacOptions : public RansacOptions {
   // to reduce overhead.
   uint32_t lo_starting_iterations_;
   bool final_least_squares_;
+  bool use_non_minimal_solver_;
 };
 
 struct RansacStatistics {
@@ -381,11 +383,15 @@ class LocallyOptimizedMSAC : public RansacBase {
       utils::RandomShuffleAndResize(kNonMinSampleSize, rng, &sample);
 
       Model m_non_min;
-      if (!solver.NonMinimalSolver(sample, &m_non_min)) continue;
+      if(options.use_non_minimal_solver_) {
+        if (!solver.NonMinimalSolver(sample, &m_non_min)) continue;
 
-      ScoreModel(solver, m_non_min, kSqInThresh, &score);
-      UpdateBestModel(score, m_non_min, score_best_minimal_model,
-                      best_minimal_model);
+        ScoreModel(solver, m_non_min, kSqInThresh, &score);
+        UpdateBestModel(score, m_non_min, score_best_minimal_model,
+                        best_minimal_model);
+      } else {
+        m_non_min = *best_minimal_model;
+      }
 
       // Iterative least squares refinement.
       LeastSquaresFit(options, kSqInThresh, solver, rng, &m_non_min);
